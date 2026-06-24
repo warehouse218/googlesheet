@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+
+<html lang="zh-Hant">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>位置與時間回報系統</title>
+
+    <style>
+
+        body {
+
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+            display: flex;
+
+            flex-direction: column;
+
+            align-items: center;
+
+            justify-content: center;
+
+            height: 100vh;
+
+            margin: 0;
+
+            background-color: #f0f2f5;
+
+            color: #333;
+
+        }
+
+        .container {
+
+            text-align: center;
+
+            padding: 30px;
+
+            background: white;
+
+            border-radius: 12px;
+
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+
+            max-width: 85%;
+
+        }
+
+        .loader {
+
+            border: 4px solid #f3f3f3;
+
+            border-top: 4px solid #25D366;
+
+            border-radius: 50%;
+
+            width: 40px;
+
+            height: 40px;
+
+            animation: spin 1s linear infinite;
+
+            margin: 20px auto;
+
+        }
+
+        @keyframes spin {
+
+            0% { transform: rotate(0deg); }
+
+            100% { transform: rotate(360deg); }
+
+        }
+
+        button {
+
+            background-color: #25D366;
+
+            color: white;
+
+            border: none;
+
+            padding: 12px 24px;
+
+            font-size: 16px;
+
+            border-radius: 6px;
+
+            cursor: pointer;
+
+            font-weight: bold;
+
+            display: none;
+
+            margin-top: 15px;
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <h2 id="title-text">正在獲取您的位置與時間...</h2>
+
+    <div id="status-icon" class="loader"></div>
+
+    <p id="status-text">請在手機瀏覽器彈出提示時，點選「允許」分享位置資訊。</p>
+
+    <button id="retry-btn" onclick="getLocation()">重新嘗試</button>
+
+</div>
+
+<script>
+
+    // ⚠️ 請修改為你要接收訊息的指定 WhatsApp 電話號碼 ⚠️
+
+    const WHATSAPP_NUMBER = "85296650265";
+
+    const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbySpTRLwkreFXdCgRQVyYSmQ1kuLHfsS_5e7Oq9x3P4HPxKlhG143qQqSohajnXmGl8xw/exec";
+
+
+    // 自動從網址中取得 id 參數 (例如 ?id=A01)
+
+    const urlParams = new URLSearchParams(window.location.search);
+
+    const userId = urlParams.get('id') || "未填寫ID";
+
+    function getLocation() {
+
+        document.getElementById("status-icon").className = "loader";
+
+        document.getElementById("status-text").innerText = "請在手機瀏覽器彈出提示時，點選「允許」分享位置資訊。";
+
+        document.getElementById("retry-btn").style.display = "none";
+
+        if (navigator.geolocation) {
+
+            navigator.geolocation.getCurrentPosition(successCallback, errorCallback, {
+
+                enableHighAccuracy: true,
+
+                timeout: 10000,
+
+                maximumAge: 0
+
+            });
+
+        } else {
+
+            handleError("您的瀏覽器不支援 GPS 定位功能。");
+
+        }
+
+    }
+
+    function successCallback(position) {
+
+        const lat = position.coords.latitude;
+
+        const lng = position.coords.longitude;
+
+       
+
+        const now = new Date();
+
+        const timeString = now.getFullYear() + "-" +
+
+                           String(now.getMonth() + 1).padStart(2, '0') + "-" +
+
+                           String(now.getDate()).padStart(2, '0') + " " +
+
+                           String(now.getHours()).padStart(2, '0') + ":" +
+
+                           String(now.getMinutes()).padStart(2, '0') + ":" +
+
+                           String(now.getSeconds()).padStart(2, '0');
+
+        document.getElementById("status-icon").className = "";
+
+        document.getElementById("status-text").innerText = "定位成功！正在跳轉至 WhatsApp...";
+
+        // 🟢 訊息內容加入了 【回報ID】
+
+        const message = `📍【位置與時間回報】\n🆔 帳號/設備ID：${userId}\n⏱️ 時間：${timeString}\n🌐 座標：${lat}, ${lng}\n🗺️ 地圖：https://www.google.com/maps?q=${lat},${lng}`;
+
+       
+
+        const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+
+        window.location.href = whatsappUrl;
+
+    }
+
+    function errorCallback(error) {
+
+        let msg = "";
+
+        switch(error.code) {
+
+            case error.PERMISSION_DENIED:
+
+                msg = "您拒絕了定位請求。請允許瀏覽器存取位置。";
+
+                break;
+
+            case error.POSITION_UNAVAILABLE:
+
+                msg = "無法取得位置資訊。";
+
+                break;
+
+            case error.TIMEOUT:
+
+                msg = "定位逾時，請重試。";
+
+                break;
+
+            default:
+
+                msg = "發生未知錯誤。";
+
+                break;
+
+        }
+
+        handleError(msg);
+
+    }
+
+    function handleError(message) {
+
+        document.getElementById("status-icon").className = "";
+
+        document.getElementById("status-text").innerText = message;
+
+        document.getElementById("retry-btn").style.display = "inline-block";
+
+    }
+
+    window.onload = getLocation;
+
+</script>
+
+</body>
+
+</html>
