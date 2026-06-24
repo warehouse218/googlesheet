@@ -141,9 +141,20 @@ return;
 }
 
 // 把資料永久儲存在該手機瀏覽器中
-localStorage.setItem("qr_user_name", nameInput);
-localStorage.setItem("qr_user_phone", phoneInput);
+// localStorage.setItem("qr_user_name", nameInput);
+// localStorage.setItem("qr_user_phone", phoneInput);
 
+try {
+  localStorage.setItem("qr_user_name", nameInput);
+  localStorage.setItem("qr_user_phone", phoneInput);
+  } catch (e) {
+    console.warn('localStorage is not accessible, using fallback or memory storage.');
+    // Use an in-memory object or cookies as a fallback
+  }
+
+
+
+  
 cachedName = nameInput;
 cachedPhone = phoneInput;
 
