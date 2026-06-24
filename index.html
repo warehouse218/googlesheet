@@ -100,37 +100,103 @@ button:hover { background-color: #20ba5a; }
 
 <script>
 // ⚠️ 1. 請修改為接收訊息的指定 WhatsApp 電話號碼 ⚠️
-const WHATSAPP_NUMBER = "85296650265"; 
+const WHATSAPP_NUMBER = "886912345678"; 
 
 // ⚠️ 2. 請貼上您的 Google Apps Script 網頁應用程式網址 ⚠️
-const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbySpTRLwkreFXdCgRQVyYSmQ1kuLHfsS_5e7Oq9x3P4HPxKlhG143qQqSohajnXmGl8xw/exec"; 
+const GOOGLE_GAS_URL = "https://script.google.com/macros/s/XXXXX/exec"; 
 
 // 從網址取得設備 id (例如 ?id=Device_A)
 const urlParams = new URLSearchParams(window.location.search);
 const deviceId = urlParams.get('id') || "公共設備";
 
-// 全域變數儲存用家資料
 let cachedName = "";
 let cachedPhone = "";
 
-// 頁面載入時的邏輯判斷
+// --- Cookie 讀寫控制（大幅改善部分瀏覽器記憶失效的問題） ---
+function setCookie(name, value) {
+const d = new Date();
+d.setTime(d.getTime() + (365*24*60*60*1000)); // 記憶保存 365 天
+const expires = "expires="+ d.toUTCString();
+document.cookie = name + "=" + encodeURIComponent(value) + ";" + expires + ";path=/;SameSite=Strict";
+}
+
+function getCookie(name) {
+const cname = name + "=";
+const decodedCookie = decodeURIComponent(document.cookie);
+const ca = decodedCookie.split(';');
+for(let i = 0; i < ca.length; i++) {
+let c = ca[i];
+while (c.charAt(0) == ' ') c = c.substring(1);
+if (c.indexOf(cname) == 0) return c.substring(cname.length, c.length);
+}
+return "";
+}
+
+// --- 裝置與手機型號深度偵測函數 (方案 A) ---
+function getDeviceInfo() {
+const ua = navigator.userAgent;
+let os = "未知系統";
+let browser = "未知瀏覽器";
+let model = "";
+
+// 1. 偵測作業系統
+if (/Android/i.test(ua)) os = "Android";
+else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
+else if (/Windows NT/i.test(ua)) os = "Windows";
+else if (/Macintosh/i.test(ua)) os = "MacS";
+
+// 2. 偵測瀏覽器
+if (/FBAN|FBAV/i.test(ua)) browser = "Facebook";
+else if (/Line/i.test(ua)) browser = "LINE";
+else if (/MicroMessenger/i.test(ua)) browser = "WeChat";
+else if (/CriOS|Chrome/i.test(ua)) browser = "Chrome";
+else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = "Safari";
+
+// 3. 取得螢幕維度特徵
+const width = window.screen.width;
+const height = window.screen.height;
+
+// 4. 比對常見 iPhone 螢幕特徵猜測具體型號
+if (os === "iOS") {
+if (width === 393 && height === 852) {
+model = " (可能是 iPhone 14Pro/15/15Pro)";
+} else if (width === 430 && height === 932) {
+model = " (可能是 iPhone 14ProMax/15Plus/15ProMax)";
+} else if (width === 390 && height === 844) {
+model = " (可能是 iPhone 13/13Pro/14)";
+} else if (width === 428 && height === 926) {
+model = " (可能是 iPhone 13ProMax/14Plus)";
+} else if (width === 375 && height === 812) {
+model = " (可能是 iPhone X/XS/11Pro/12mini/13mini)";
+} else if (width === 414 && height === 896) {
+model = " (可能是 iPhone XR/11/XSMax/11ProMax)";
+} else if (width === 375 && height === 667) {
+model = " (可能是 iPhone 7/8/SE2/SE3)";
+} else {
+model = " (iPhone)";
+}
+} else if (os === "Android") {
+// Android 型號眾多，故直接回傳解析度作為後台辨識基準
+model = ` (螢幕:${width}x${height})`;
+}
+
+return `${os} (${browser})${model}`;
+}
+
+// 頁面初始判斷
 function checkUserStatus() {
-// 嘗試從手機本地儲存空間讀取姓名與電話
-cachedName = localStorage.getItem("qr_user_name");
-cachedPhone = localStorage.getItem("qr_user_phone");
+cachedName = getCookie("qr_user_name");
+cachedPhone = getCookie("qr_user_phone");
 
 if (cachedName && cachedPhone) {
-// 如果有紀錄，直接進入定位流程
 showStatusView("正在獲取您的位置與時間...");
 getLocation();
 } else {
-// 如果沒有紀錄，顯示輸入表單
 document.getElementById("form-section").style.display = "block";
 document.getElementById("status-section").style.display = "none";
 }
 }
 
-// 當使用者手動點擊「確認並送出」時觸發
 function saveAndProceed() {
 const nameInput = document.getElementById("username").value.trim();
 const phoneInput = document.getElementById("userphone").value.trim();
@@ -140,25 +206,12 @@ alert("請完整填寫姓名與電話號碼！");
 return;
 }
 
-// 把資料永久儲存在該手機瀏覽器中
-// localStorage.setItem("qr_user_name", nameInput);
-// localStorage.setItem("qr_user_phone", phoneInput);
+setCookie("qr_user_name", nameInput);
+setCookie("qr_user_phone", phoneInput);
 
-try {
-  localStorage.setItem("qr_user_name", nameInput);
-  localStorage.setItem("qr_user_phone", phoneInput);
-  } catch (e) {
-    console.warn('localStorage is not accessible, using fallback or memory storage.');
-    // Use an in-memory object or cookies as a fallback
-  }
-
-
-
-  
 cachedName = nameInput;
 cachedPhone = phoneInput;
 
-// 切換到定位狀態畫面
 document.getElementById("form-section").style.display = "none";
 showStatusView("資料已快取，正在獲取位置...");
 getLocation();
@@ -197,17 +250,18 @@ String(now.getSeconds()).padStart(2, '0');
 
 document.getElementById("status-text").innerText = "定位成功，正在同步寫入 Google 試算表...";
 
-// 封裝上傳的資料包，包含用家姓名與電話
+const deviceInfo = getDeviceInfo();
+
 const payload = {
 id: deviceId,
 name: cachedName,
 phone: cachedPhone,
 time: timeString,
 lat: lat,
-lng: lng
+lng: lng,
+device: deviceInfo
 };
 
-// 發送到 Google Sheets
 fetch(GOOGLE_GAS_URL, {
 method: "POST",
 mode: "no-cors",
@@ -218,12 +272,11 @@ body: JSON.stringify(payload)
 document.getElementById("status-icon").className = "";
 document.getElementById("status-text").innerText = "同步成功！正在自動跳轉至 WhatsApp...";
 
-// 組裝發送給指定帳戶的 WhatsApp 訊息
-const message = `📍【位置與時間回報】\n🆔 設備ID：${deviceId}\n👤 回報人：${cachedName}\n📞 電話：${cachedPhone}\n⏱️ 時間：${timeString}\n🌐 座標：${lat}, ${lng}\n🗺️ 地圖：http://googleusercontent.com/maps.google.com/4{lat},${lng}`;
+// 訊息中也會顯示深度猜測的手機資訊
+const message = `📍【位置與時間回報】\n🆔 設備ID：${deviceId}\n👤 回報人：${cachedName}\n📞 電話：${cachedPhone}\n⏱️ 時間：${timeString}\n📱 裝置：${deviceInfo}\n🌐 座標：${lat}, ${lng}\n🗺️ 地圖：http://googleusercontent.com/maps.google.com/6{lat},${lng}`;
 
 const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 
-// 跳轉到 WhatsApp
 window.location.href = whatsappUrl;
 })
 .catch(err => {
@@ -236,13 +289,13 @@ function errorCallback(error) {
 let msg = "";
 switch(error.code) {
 case error.PERMISSION_DENIED:
-msg = "您拒絕了定位請求。請允許瀏覽器存取位置，否則無法完成回報。";
+msg = "您拒絕了定位請求。請允許瀏覽器存取位置。";
 break;
 case error.POSITION_UNAVAILABLE:
-msg = "無法取得位置資訊（可能收訊不良）。";
+msg = "無法取得位置資訊。";
 break;
 case error.TIMEOUT:
-msg = "定位逾時，請至收訊佳的地方重試。";
+msg = "定位逾時，請重試。";
 break;
 default:
 msg = "發生未知錯誤。";
@@ -257,7 +310,6 @@ document.getElementById("status-text").innerText = message;
 document.getElementById("retry-btn").style.display = "block";
 }
 
-// 啟動點
 window.onload = checkUserStatus;
 </script>
 
