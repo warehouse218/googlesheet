@@ -1,254 +1,254 @@
 <!DOCTYPE html>
-
 <html lang="zh-Hant">
-
 <head>
-
-    <meta charset="UTF-8">
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>位置與時間回報系統</title>
-
-    <style>
-
-        body {
-
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-
-            display: flex;
-
-            flex-direction: column;
-
-            align-items: center;
-
-            justify-content: center;
-
-            height: 100vh;
-
-            margin: 0;
-
-            background-color: #f0f2f5;
-
-            color: #333;
-
-        }
-
-        .container {
-
-            text-align: center;
-
-            padding: 30px;
-
-            background: white;
-
-            border-radius: 12px;
-
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-
-            max-width: 85%;
-
-        }
-
-        .loader {
-
-            border: 4px solid #f3f3f3;
-
-            border-top: 4px solid #25D366;
-
-            border-radius: 50%;
-
-            width: 40px;
-
-            height: 40px;
-
-            animation: spin 1s linear infinite;
-
-            margin: 20px auto;
-
-        }
-
-        @keyframes spin {
-
-            0% { transform: rotate(0deg); }
-
-            100% { transform: rotate(360deg); }
-
-        }
-
-        button {
-
-            background-color: #25D366;
-
-            color: white;
-
-            border: none;
-
-            padding: 12px 24px;
-
-            font-size: 16px;
-
-            border-radius: 6px;
-
-            cursor: pointer;
-
-            font-weight: bold;
-
-            display: none;
-
-            margin-top: 15px;
-
-        }
-
-    </style>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>位置與時間回報系統</title>
+<style>
+body {
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+min-height: 100vh;
+margin: 0;
+background-color: #f0f2f5;
+color: #333;
+}
+.container {
+text-align: center;
+padding: 30px;
+background: white;
+border-radius: 12px;
+box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+max-width: 400px;
+width: 85%;
+}
+.loader {
+border: 4px solid #f3f3f3;
+border-top: 4px solid #25D366;
+border-radius: 50%;
+width: 40px;
+height: 40px;
+animation: spin 1s linear infinite;
+margin: 20px auto;
+}
+@keyframes spin {
+0% { transform: rotate(0deg); }
+100% { transform: rotate(360deg); }
+}
+.form-group {
+text-align: left;
+margin-bottom: 15px;
+}
+label {
+display: block;
+margin-bottom: 5px;
+font-weight: bold;
+font-size: 14px;
+}
+input {
+width: 100%;
+padding: 10px;
+border: 1px solid #ccc;
+border-radius: 6px;
+box-sizing: border-box;
+font-size: 16px;
+}
+button {
+background-color: #25D366;
+color: white;
+border: none;
+padding: 12px 24px;
+font-size: 16px;
+border-radius: 6px;
+cursor: pointer;
+font-weight: bold;
+width: 100%;
+margin-top: 10px;
+}
+button:hover { background-color: #20ba5a; }
+#status-section { display: none; }
+#form-section { display: none; }
+</style>
 </head>
-
 <body>
 
 <div class="container">
+<div id="form-section">
+<h2>首次登記資料</h2>
+<p style="color: #666; font-size: 14px;">請填寫真實資料，下次掃描將會自動跳過此步驟。</p>
+<div class="form-group">
+<label for="username">用家姓名</label>
+<input type="text" id="username" placeholder="例如：張三">
+</div>
+<div class="form-group">
+<label for="userphone">WhatsApp 電話號碼</label>
+<input type="tel" id="userphone" placeholder="例如：85291234567">
+</div>
+<button onclick="saveAndProceed()">確認並送出定位</button>
+</div>
 
-    <h2 id="title-text">正在獲取您的位置與時間...</h2>
-
-    <div id="status-icon" class="loader"></div>
-
-    <p id="status-text">請在手機瀏覽器彈出提示時，點選「允許」分享位置資訊。</p>
-
-    <button id="retry-btn" onclick="getLocation()">重新嘗試</button>
-
+<div id="status-section">
+<h2 id="title-text">正在處理中...</h2>
+<div id="status-icon" class="loader"></div>
+<p id="status-text">請在提示跳出時點選「允許」分享位置資訊。</p>
+<button id="retry-btn" style="display:none;" onclick="checkUserStatus()">重新嘗試</button>
+</div>
 </div>
 
 <script>
-
-    // ⚠️ 請修改為你要接收訊息的指定 WhatsApp 電話號碼 ⚠️
-
-    const WHATSAPP_NUMBER = "85296650265";
-
-    const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbySpTRLwkreFXdCgRQVyYSmQ1kuLHfsS_5e7Oq9x3P4HPxKlhG143qQqSohajnXmGl8xw/exec";
-
-
-    // 自動從網址中取得 id 參數 (例如 ?id=A01)
-
-    const urlParams = new URLSearchParams(window.location.search);
-
-    const userId = urlParams.get('id') || "未填寫ID";
-
-    function getLocation() {
-
-        document.getElementById("status-icon").className = "loader";
-
-        document.getElementById("status-text").innerText = "請在手機瀏覽器彈出提示時，點選「允許」分享位置資訊。";
-
-        document.getElementById("retry-btn").style.display = "none";
-
-        if (navigator.geolocation) {
-
-            navigator.geolocation.getCurrentPosition(successCallback, errorCallback, {
-
-                enableHighAccuracy: true,
-
-                timeout: 10000,
-
-                maximumAge: 0
-
-            });
-
-        } else {
-
-            handleError("您的瀏覽器不支援 GPS 定位功能。");
-
-        }
-
-    }
-
-    function successCallback(position) {
-
-        const lat = position.coords.latitude;
-
-        const lng = position.coords.longitude;
-
-       
-
-        const now = new Date();
-
-        const timeString = now.getFullYear() + "-" +
-
-                           String(now.getMonth() + 1).padStart(2, '0') + "-" +
-
-                           String(now.getDate()).padStart(2, '0') + " " +
-
-                           String(now.getHours()).padStart(2, '0') + ":" +
-
-                           String(now.getMinutes()).padStart(2, '0') + ":" +
-
-                           String(now.getSeconds()).padStart(2, '0');
-
-        document.getElementById("status-icon").className = "";
-
-        document.getElementById("status-text").innerText = "定位成功！正在跳轉至 WhatsApp...";
-
-        // 🟢 訊息內容加入了 【回報ID】
-
-        const message = `📍【位置與時間回報】\n🆔 帳號/設備ID：${userId}\n⏱️ 時間：${timeString}\n🌐 座標：${lat}, ${lng}\n🗺️ 地圖：https://www.google.com/maps?q=${lat},${lng}`;
-
-       
-
-        const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
-
-        window.location.href = whatsappUrl;
-
-    }
-
-    function errorCallback(error) {
-
-        let msg = "";
-
-        switch(error.code) {
-
-            case error.PERMISSION_DENIED:
-
-                msg = "您拒絕了定位請求。請允許瀏覽器存取位置。";
-
-                break;
-
-            case error.POSITION_UNAVAILABLE:
-
-                msg = "無法取得位置資訊。";
-
-                break;
-
-            case error.TIMEOUT:
-
-                msg = "定位逾時，請重試。";
-
-                break;
-
-            default:
-
-                msg = "發生未知錯誤。";
-
-                break;
-
-        }
-
-        handleError(msg);
-
-    }
-
-    function handleError(message) {
-
-        document.getElementById("status-icon").className = "";
-
-        document.getElementById("status-text").innerText = message;
-
-        document.getElementById("retry-btn").style.display = "inline-block";
-
-    }
-
-    window.onload = getLocation;
-
+// ⚠️ 1. 請修改為接收訊息的指定 WhatsApp 電話號碼 ⚠️
+const WHATSAPP_NUMBER = "85296650265"; 
+
+// ⚠️ 2. 請貼上您的 Google Apps Script 網頁應用程式網址 ⚠️
+const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbySpTRLwkreFXdCgRQVyYSmQ1kuLHfsS_5e7Oq9x3P4HPxKlhG143qQqSohajnXmGl8xw/exec"; 
+
+// 從網址取得設備 id (例如 ?id=Device_A)
+const urlParams = new URLSearchParams(window.location.search);
+const deviceId = urlParams.get('id') || "公共設備";
+
+// 全域變數儲存用家資料
+let cachedName = "";
+let cachedPhone = "";
+
+// 頁面載入時的邏輯判斷
+function checkUserStatus() {
+// 嘗試從手機本地儲存空間讀取姓名與電話
+cachedName = localStorage.getItem("qr_user_name");
+cachedPhone = localStorage.getItem("qr_user_phone");
+
+if (cachedName && cachedPhone) {
+// 如果有紀錄，直接進入定位流程
+showStatusView("正在獲取您的位置與時間...");
+getLocation();
+} else {
+// 如果沒有紀錄，顯示輸入表單
+document.getElementById("form-section").style.display = "block";
+document.getElementById("status-section").style.display = "none";
+}
+}
+
+// 當使用者手動點擊「確認並送出」時觸發
+function saveAndProceed() {
+const nameInput = document.getElementById("username").value.trim();
+const phoneInput = document.getElementById("userphone").value.trim();
+
+if (!nameInput || !phoneInput) {
+alert("請完整填寫姓名與電話號碼！");
+return;
+}
+
+// 把資料永久儲存在該手機瀏覽器中
+localStorage.setItem("qr_user_name", nameInput);
+localStorage.setItem("qr_user_phone", phoneInput);
+
+cachedName = nameInput;
+cachedPhone = phoneInput;
+
+// 切換到定位狀態畫面
+document.getElementById("form-section").style.display = "none";
+showStatusView("資料已快取，正在獲取位置...");
+getLocation();
+}
+
+function showStatusView(msg) {
+document.getElementById("status-section").style.display = "block";
+document.getElementById("status-text").innerText = msg;
+document.getElementById("status-icon").className = "loader";
+document.getElementById("retry-btn").style.display = "none";
+}
+
+function getLocation() {
+if (navigator.geolocation) {
+navigator.geolocation.getCurrentPosition(successCallback, errorCallback, {
+enableHighAccuracy: true,
+timeout: 10000,
+maximumAge: 0
+});
+} else {
+handleError("您的瀏覽器不支援 GPS 定位功能。");
+}
+}
+
+function successCallback(position) {
+const lat = position.coords.latitude;
+const lng = position.coords.longitude;
+
+const now = new Date();
+const timeString = now.getFullYear() + "-" + 
+String(now.getMonth() + 1).padStart(2, '0') + "-" + 
+String(now.getDate()).padStart(2, '0') + " " + 
+String(now.getHours()).padStart(2, '0') + ":" + 
+String(now.getMinutes()).padStart(2, '0') + ":" + 
+String(now.getSeconds()).padStart(2, '0');
+
+document.getElementById("status-text").innerText = "定位成功，正在同步寫入 Google 試算表...";
+
+// 封裝上傳的資料包，包含用家姓名與電話
+const payload = {
+id: deviceId,
+name: cachedName,
+phone: cachedPhone,
+time: timeString,
+lat: lat,
+lng: lng
+};
+
+// 發送到 Google Sheets
+fetch(GOOGLE_GAS_URL, {
+method: "POST",
+mode: "no-cors",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify(payload)
+})
+.then(() => {
+document.getElementById("status-icon").className = "";
+document.getElementById("status-text").innerText = "同步成功！正在自動跳轉至 WhatsApp...";
+
+// 組裝發送給指定帳戶的 WhatsApp 訊息
+const message = `📍【位置與時間回報】\n🆔 設備ID：${deviceId}\n👤 回報人：${cachedName}\n📞 電話：${cachedPhone}\n⏱️ 時間：${timeString}\n🌐 座標：${lat}, ${lng}\n🗺️ 地圖：http://googleusercontent.com/maps.google.com/4{lat},${lng}`;
+
+const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+
+// 跳轉到 WhatsApp
+window.location.href = whatsappUrl;
+})
+.catch(err => {
+console.error(err);
+handleError("資料上傳雲端失敗，請重試。");
+});
+}
+
+function errorCallback(error) {
+let msg = "";
+switch(error.code) {
+case error.PERMISSION_DENIED:
+msg = "您拒絕了定位請求。請允許瀏覽器存取位置，否則無法完成回報。";
+break;
+case error.POSITION_UNAVAILABLE:
+msg = "無法取得位置資訊（可能收訊不良）。";
+break;
+case error.TIMEOUT:
+msg = "定位逾時，請至收訊佳的地方重試。";
+break;
+default:
+msg = "發生未知錯誤。";
+break;
+}
+handleError(msg);
+}
+
+function handleError(message) {
+document.getElementById("status-icon").className = "";
+document.getElementById("status-text").innerText = message;
+document.getElementById("retry-btn").style.display = "block";
+}
+
+// 啟動點
+window.onload = checkUserStatus;
 </script>
 
 </body>
-
 </html>
