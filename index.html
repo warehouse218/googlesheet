@@ -78,7 +78,7 @@ button:hover { background-color: #20ba5a; }
 <div class="container">
 <div id="form-section">
 <h2>首次登記資料</h2>
-<p style="color: #666; font-size: 14px;">請填寫真實資料，下次掃描將會自動跳過此步驟。</p>
+<p style="color: #666; font-size: 14px;">請填寫真實資料，系統將在您的手機儲存永久虛擬身分識別碼 (UUID)。</p>
 <div class="form-group">
 <label for="username">用家姓名</label>
 <input type="text" id="username" placeholder="例如：張三">
@@ -100,10 +100,10 @@ button:hover { background-color: #20ba5a; }
 
 <script>
 // ⚠️ 1. 請修改為接收訊息的指定 WhatsApp 電話號碼 ⚠️
-const WHATSAPP_NUMBER = "85296650265"; 
+const WHATSAPP_NUMBER = "886912345678"; 
 
 // ⚠️ 2. 請貼上您的 Google Apps Script 網頁應用程式網址 ⚠️
-const GOOGLE_GAS_URL = "https://script.google.com/macros/s/AKfycbySpTRLwkreFXdCgRQVyYSmQ1kuLHfsS_5e7Oq9x3P4HPxKlhG143qQqSohajnXmGl8xw/exec"; 
+const GOOGLE_GAS_URL = "https://script.google.com/macros/s/XXXXX/exec"; 
 
 // 從網址取得設備 id (例如 ?id=Device_A)
 const urlParams = new URLSearchParams(window.location.search);
@@ -111,92 +111,71 @@ const deviceId = urlParams.get('id') || "公共設備";
 
 let cachedName = "";
 let cachedPhone = "";
+let cachedUUID = "";
 
-// --- Cookie 讀寫控制（大幅改善部分瀏覽器記憶失效的問題） ---
-function setCookie(name, value) {
-const d = new Date();
-d.setTime(d.getTime() + (365*24*60*60*1000)); // 記憶保存 365 天
-const expires = "expires="+ d.toUTCString();
-document.cookie = name + "=" + encodeURIComponent(value) + ";" + expires + ";path=/;SameSite=Strict";
+// --- 隨機生成虛擬 UUID 函數 ---
+function generateUUID() {
+return 'xxxx-xxxx-xxxx-xxxx'.replace(/[xy]/g, function(c) {
+var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+return v.toString(16);
+});
 }
 
-function getCookie(name) {
-const cname = name + "=";
-const decodedCookie = decodeURIComponent(document.cookie);
-const ca = decodedCookie.split(';');
-for(let i = 0; i < ca.length; i++) {
-let c = ca[i];
-while (c.charAt(0) == ' ') c = c.substring(1);
-if (c.indexOf(cname) == 0) return c.substring(cname.length, c.length);
-}
-return "";
-}
-
-// --- 裝置與手機型號深度偵測函數 (方案 A) ---
+// --- 裝置與手機型號深度偵測函數 ---
 function getDeviceInfo() {
 const ua = navigator.userAgent;
 let os = "未知系統";
 let browser = "未知瀏覽器";
 let model = "";
 
-// 1. 偵測作業系統
 if (/Android/i.test(ua)) os = "Android";
 else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
 else if (/Windows NT/i.test(ua)) os = "Windows";
 else if (/Macintosh/i.test(ua)) os = "MacS";
 
-// 2. 偵測瀏覽器
 if (/FBAN|FBAV/i.test(ua)) browser = "Facebook";
 else if (/Line/i.test(ua)) browser = "LINE";
 else if (/MicroMessenger/i.test(ua)) browser = "WeChat";
 else if (/CriOS|Chrome/i.test(ua)) browser = "Chrome";
 else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = "Safari";
 
-// 3. 取得螢幕維度特徵
 const width = window.screen.width;
 const height = window.screen.height;
 
-// 4. 比對常見 iPhone 螢幕特徵猜測具體型號
 if (os === "iOS") {
-if (width === 393 && height === 852) {
-model = " (可能是 iPhone 14Pro/15/15Pro)";
-} else if (width === 430 && height === 932) {
-model = " (可能是 iPhone 14ProMax/15Plus/15ProMax)";
-} else if (width === 390 && height === 844) {
-model = " (可能是 iPhone 13/13Pro/14)";
-} else if (width === 428 && height === 926) {
-model = " (可能是 iPhone 13ProMax/14Plus)";
-} else if (width === 375 && height === 812) {
-model = " (可能是 iPhone X/XS/11Pro/12mini/13mini)";
-} else if (width === 414 && height === 896) {
-model = " (可能是 iPhone XR/11/XSMax/11ProMax)";
-} else if (width === 375 && height === 667) {
-model = " (可能是 iPhone 7/8/SE2/SE3)";
-} else {
-model = " (iPhone)";
-}
+if (width === 393 && height === 852) model = " (可能是 iPhone 14Pro/15/15Pro)";
+else if (width === 430 && height === 932) model = " (可能是 iPhone 14ProMax/15Plus/15ProMax)";
+else if (width === 390 && height === 844) model = " (可能是 iPhone 13/13Pro/14)";
+else if (width === 428 && height === 926) model = " (可能是 iPhone 13ProMax/14Plus)";
+else if (width === 375 && height === 812) model = " (可能是 iPhone X/XS/11Pro/12mini/13mini)";
+else if (width === 414 && height === 896) model = " (可能是 iPhone XR/11/XSMax/11ProMax)";
+else if (width === 375 && height === 667) model = " (可能是 iPhone 7/8/SE2/SE3)";
+else model = " (iPhone)";
 } else if (os === "Android") {
-// Android 型號眾多，故直接回傳解析度作為後台辨識基準
 model = ` (螢幕:${width}x${height})`;
 }
 
 return `${os} (${browser})${model}`;
 }
 
-// 頁面初始判斷
+// --- 頁面初始判斷：改用 localStorage 全面取代 Cookie ---
 function checkUserStatus() {
-cachedName = getCookie("qr_user_name");
-cachedPhone = getCookie("qr_user_phone");
+cachedName = localStorage.getItem("qr_user_name");
+cachedPhone = localStorage.getItem("qr_user_phone");
+cachedUUID = localStorage.getItem("qr_user_uuid");
 
-if (cachedName && cachedPhone) {
+// 三個硬體及身分資料齊全，直接放行定位
+if (cachedName && cachedPhone && cachedUUID) {
 showStatusView("正在獲取您的位置與時間...");
 getLocation();
 } else {
+// 只要缺少任何一項，就顯示表單要求註冊
 document.getElementById("form-section").style.display = "block";
 document.getElementById("status-section").style.display = "none";
 }
 }
 
+// 首次登記送出
 function saveAndProceed() {
 const nameInput = document.getElementById("username").value.trim();
 const phoneInput = document.getElementById("userphone").value.trim();
@@ -206,14 +185,20 @@ alert("請完整填寫姓名與電話號碼！");
 return;
 }
 
-setCookie("qr_user_name", nameInput);
-setCookie("qr_user_phone", phoneInput);
+// 生成全新的永久隨機 UUID
+const newUUID = generateUUID();
+
+// 寫入手機內建的 localStorage 空間（永久保存）
+localStorage.setItem("qr_user_name", nameInput);
+localStorage.setItem("qr_user_phone", phoneInput);
+localStorage.setItem("qr_user_uuid", newUUID);
 
 cachedName = nameInput;
 cachedPhone = phoneInput;
+cachedUUID = newUUID;
 
 document.getElementById("form-section").style.display = "none";
-showStatusView("資料已快取，正在獲取位置...");
+showStatusView("裝置識別碼已生成，正在獲取位置...");
 getLocation();
 }
 
@@ -259,7 +244,8 @@ phone: cachedPhone,
 time: timeString,
 lat: lat,
 lng: lng,
-device: deviceInfo
+device: deviceInfo,
+uuid: cachedUUID
 };
 
 fetch(GOOGLE_GAS_URL, {
@@ -272,8 +258,8 @@ body: JSON.stringify(payload)
 document.getElementById("status-icon").className = "";
 document.getElementById("status-text").innerText = "同步成功！正在自動跳轉至 WhatsApp...";
 
-// 訊息中也會顯示深度猜測的手機資訊
-const message = `📍【位置與時間回報】\n🆔 設備ID：${deviceId}\n👤 回報人：${cachedName}\n📞 電話：${cachedPhone}\n⏱️ 時間：${timeString}\n📱 裝置：${deviceInfo}\n🌐 座標：${lat}, ${lng}\n🗺️ 地圖：http://googleusercontent.com/maps.google.com/6{lat},${lng}`;
+const shortUUID = cachedUUID.split('-')[0];
+const message = `📍【位置與時間回報】\n🆔 設備ID：${deviceId}\n👤 回報人：${cachedName}\n📞 電話：${cachedPhone}\n🔒 裝置碼：${shortUUID}\n⏱️ 時間：${timeString}\n📱 裝置：${deviceInfo}\n🌐 座標：${lat}, ${lng}\n🗺️ 地圖：http://googleusercontent.com/maps.google.com/7{lat},${lng}`;
 
 const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 
