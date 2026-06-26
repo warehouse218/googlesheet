@@ -259,7 +259,7 @@ document.getElementById("status-icon").className = "";
 document.getElementById("status-text").innerText = "同步成功！正在自動跳轉至 WhatsApp...";
 
 const shortUUID = cachedUUID.split('-')[0];
-const message = `📍【位置與時間回報】\n🆔 設備ID：${deviceId}\n👤 回報人：${cachedName}\n📞 電話：${cachedPhone}\n🔒 裝置碼：${shortUUID}\n⏱️ 時間：${timeString}\n📱 裝置：${deviceInfo}\n🌐 座標：${lat}, ${lng}\n🗺️ 地圖：https://google.com/maps?q=${lat},${lng}`;
+const message = `📍【位置與時間回報】\n🆔 設備ID：${deviceId}\n👤 回報人：${cachedName}\n📞 電話：${cachedPhone}\n🔒 裝置碼：${shortUUID}\n⏱️ 時間：${timeString}\n📱 裝置：${deviceInfo}\n🌐 座標：${lat}, ${lng}\n🗺️ 地圖：https://www.google.com/maps?q=${lat},${lng}`;
 
 const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 
